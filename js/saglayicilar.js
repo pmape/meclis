@@ -85,22 +85,6 @@ export const YERLESIK_SERVISLER = [
         'Anahtarı kopyalayıp aşağıya yapıştır. Model adı çalışmazsa "Modelleri getir" ile listeden DeepSeek ile başlayan birini seç.'
       ]
     }
-  },
-  {
-    id: 'nvidia',
-    ad: 'NVIDIA',
-    tur: 'openai',
-    adres: 'https://integrate.api.nvidia.com/v1',
-    model: '',
-    not: 'Deneme amaçlı ücretsiz erişim; telefon doğrulaması ister. Tarayıcıdan bağlantıya izin vermeyebilir: bu durumda Meclis bunu "bağlanamadı" diye gösterir.',
-    yardim: {
-      url: 'https://build.nvidia.com',
-      adimlar: [
-        'Bağlantıyı aç ve giriş yap (telefon doğrulaması istenebilir).',
-        'Herhangi bir modelin sayfasında "Get API Key" düğmesine bas.',
-        'Anahtarı kopyalayıp aşağıya yapıştır, sonra "Modelleri getir" ile bir model seç.'
-      ]
-    }
   }
 ];
 
