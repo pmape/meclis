@@ -101,7 +101,28 @@ function zamanAsimiSinyali(saniye, dis) {
   return { sinyal: kontrol.signal, temizle: () => clearTimeout(zamanlayici) };
 }
 
+const GECICI_HATALAR = new Set([500, 502, 503, 504, 529]);
+const BEKLEMELER = [3, 8]; // saniye: geçici yoğunlukta önce 3, sonra 8 saniye bekleyip yeniden dener
+
+const bekle = (sn) => new Promise((coz) => setTimeout(coz, sn * 1000));
+
+// Servis "şu an çok yoğun" (503 vb.) derse hemen pes etmez, kısa aralarla yeniden dener.
 async function istekGonder(url, secenekler, zamanAsimi, disSinyal) {
+  for (let deneme = 0; ; deneme++) {
+    try {
+      return await tekIstek(url, secenekler, zamanAsimi, disSinyal);
+    } catch (h) {
+      const gecici = h instanceof BaglantiHatasi && GECICI_HATALAR.has(h.durumKodu);
+      if (!gecici || deneme >= BEKLEMELER.length || disSinyal?.aborted) {
+        if (gecici) h.message = `Servis şu an çok yoğun, birkaç denemede de cevap vermedi. Biraz sonra tekrar dene. (${h.durumKodu})`;
+        throw h;
+      }
+      await bekle(BEKLEMELER[deneme]);
+    }
+  }
+}
+
+async function tekIstek(url, secenekler, zamanAsimi, disSinyal) {
   const { sinyal, temizle } = zamanAsimiSinyali(zamanAsimi, disSinyal);
   let yanit;
   try {
@@ -121,7 +142,9 @@ async function istekGonder(url, secenekler, zamanAsimi, disSinyal) {
       const bekle = parseInt(yanit.headers.get('retry-after') || '', 10);
       throw new KotaHatasi(`Kota doldu${kisa ? ': ' + kisa : ''}`, Number.isFinite(bekle) ? bekle : null);
     }
-    throw new BaglantiHatasi(`Servis hata verdi (${yanit.status})${kisa ? ': ' + kisa : ''}`);
+    const h = new BaglantiHatasi(`Servis hata verdi (${yanit.status})${kisa ? ': ' + kisa : ''}`);
+    h.durumKodu = yanit.status;
+    throw h;
   }
   return yanit.json();
 }

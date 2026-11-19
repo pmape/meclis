@@ -1,7 +1,7 @@
 // Meclis service worker: uygulama dosyalarını saklar, böylece Meclis
 // "uygulama olarak yükle" ile kurulabilir ve hızlı açılır.
 // Yeni sürüm yayınlanınca SURUM değeri değiştirilir.
-const SURUM = 'meclis-1.0.1';
+const SURUM = 'meclis-1.0.2';
 const DOSYALAR = [
   './',
   './index.html',
