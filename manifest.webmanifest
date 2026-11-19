@@ -1,0 +1,15 @@
+{
+  "name": "Meclis",
+  "short_name": "Meclis",
+  "description": "Birçok yapay zekaya aynı soruyu sorup cevapları karşılaştıran çalışma aracı.",
+  "lang": "tr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F4F3EF",
+  "theme_color": "#1D4ED8",
+  "icons": [
+    { "src": "simge.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "simge-maskeli.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
