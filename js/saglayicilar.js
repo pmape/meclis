@@ -16,7 +16,7 @@ export const YERLESIK_SERVISLER = [
     ad: 'Gemini',
     tur: 'gemini',
     adres: 'https://generativelanguage.googleapis.com/v1beta',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.8-flash',
     not: 'Ücretsiz; limitler model başına ve AI Studio\'da görünür. Türkiye\'de gönderilen veriler eğitimde kullanılabilir.',
     yardim: {
       url: 'https://aistudio.google.com/apikey',
@@ -141,8 +141,28 @@ function hataMetniniCikar(metin) {
 export async function sor(servis, mesajlar, { zamanAsimi = 90, sinyal, sicaklik = 0.7 } = {}) {
   if (!servis.anahtar) throw new AnahtarHatasi('Anahtar girilmemiş');
   if (!servis.model) throw new AnahtarHatasi('Model seçilmemiş');
-  if (servis.tur === 'gemini') return geminiSor(servis, mesajlar, zamanAsimi, sinyal, sicaklik);
-  return openaiSor(servis, mesajlar, zamanAsimi, sinyal, sicaklik);
+  const calistir = (s) => (s.tur === 'gemini'
+    ? geminiSor(s, mesajlar, zamanAsimi, sinyal, sicaklik)
+    : openaiSor(s, mesajlar, zamanAsimi, sinyal, sicaklik));
+  try {
+    return await calistir(servis);
+  } catch (h) {
+    // Servis "bu model kapandı, şunu kullan" derse önerilen modelle bir kez daha dene.
+    // Çağıran taraf yeniModel'i görünce ayarları kendisi günceller.
+    const oneri = onerilenModel(h, servis.model);
+    if (!oneri) throw h;
+    const sonuc = await calistir({ ...servis, model: oneri });
+    return { ...sonuc, yeniModel: oneri };
+  }
+}
+
+// "... is no longer available ... use models/gemini-3.8-flash ..." gibi mesajlardan yeni model adını çıkarır.
+export function onerilenModel(hata, eskiModel) {
+  if (!(hata instanceof BaglantiHatasi)) return null;
+  const m = String(hata.message).match(/\buse\s+(?:the\s+)?(?:model\s+)?models\/([A-Za-z0-9._\-]+)/i);
+  if (!m) return null;
+  const oneri = m[1].replace(/[.\-]+$/, '');
+  return oneri && oneri !== String(eskiModel).replace(/^models\//, '') ? oneri : null;
 }
 
 async function openaiSor(servis, mesajlar, zamanAsimi, sinyal, sicaklik) {
@@ -218,5 +238,5 @@ export async function modelleriGetir(servis) {
 // Ayarlar'daki "Dene" düğmesi için kısa bir deneme sorusu.
 export async function dene(servis) {
   const sonuc = await sor(servis, [{ rol: 'kullanici', icerik: 'Sadece "hazırım" yaz.' }], { zamanAsimi: 45, sicaklik: 0 });
-  return sonuc.metin.slice(0, 80);
+  return { metin: sonuc.metin.slice(0, 80), yeniModel: sonuc.yeniModel };
 }

@@ -139,7 +139,13 @@ export function servisKartlariniBagla(kok, u) {
         const cevap = await dene(s);
         durumAyarla(id, 'hazir');
         dinlenmeBitti(id);
-        yaz(`Çalışıyor. Cevap: "${cevap}"`, 'iyi');
+        if (cevap.yeniModel) {
+          await u.modeliGuncelle(id, cevap.yeniModel);
+          if (modelGirdi) modelGirdi.value = cevap.yeniModel;
+          yaz(`Çalışıyor. Eski model kapanmıştı; ${cevap.yeniModel} modeline geçildi.`, 'iyi');
+        } else {
+          yaz(`Çalışıyor. Cevap: "${cevap.metin}"`, 'iyi');
+        }
       } catch (h) {
         durumAyarla(id, h instanceof AnahtarHatasi ? 'anahtar' : 'hata', h.message);
         yaz(h.message, 'kotu');

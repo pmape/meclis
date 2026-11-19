@@ -160,8 +160,18 @@ async function klasorDegistir({ sessiz = false } = {}) {
 
 // ---------- Ortak işlemler (ayarlar ve sihirbaz kullanır) ----------
 
+// Bir servis kapanan modelin yerine yeni model önerdiğinde ayarları günceller.
+async function modeliGuncelle(id, model) {
+  const s = d.ayarlar.servisler.find((x) => x.id === id);
+  if (!s || s.model === model) return;
+  s.model = model;
+  await ayarlariKaydet();
+  bildir(`${s.ad}: eski model kapanmıştı, ${model} modeline geçildi.`);
+}
+
 const u = {
   get ayarlar() { return d.ayarlar; },
+  modeliGuncelle,
   get anahtarlar() { return d.anahtarlar; },
   servisler,
   ayarlariKaydet,
@@ -435,6 +445,7 @@ async function soruSor(soru) {
     const tur = await turBaslat({ soru, baglam, servisler: liste, zamanAsimi: d.ayarlar.zamanAsimi, ilerleme: canliIlerleme });
     tur.id = geciciId;
     d.sohbet.turlar[d.sohbet.turlar.length - 1] = tur;
+    for (const c of tur.cevaplar) if (c.yeniModel) await modeliGuncelle(c.servisId, c.yeniModel);
     d.secim = null;
     const basarili = tur.cevaplar.filter((c) => !c.hata).length;
     if (basarili > 0) {

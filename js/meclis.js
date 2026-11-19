@@ -72,9 +72,11 @@ export async function turBaslat({ soru, baglam, servisler, zamanAsimi = 90, iler
     durumAyarla(s.id, 'bekliyor');
     ilerleme(s, 'bekliyor');
     try {
-      const { metin, model } = await sor(s, mesajlar, { zamanAsimi });
+      const { metin, model, yeniModel } = await sor(s, mesajlar, { zamanAsimi });
       durumAyarla(s.id, 'hazir');
-      tur.cevaplar.push({ servisId: s.id, ad: s.ad, model, metin, sure: Math.round((performance.now() - bas) / 1000) });
+      const cevap = { servisId: s.id, ad: s.ad, model, metin, sure: Math.round((performance.now() - bas) / 1000) };
+      if (yeniModel) cevap.yeniModel = yeniModel;
+      tur.cevaplar.push(cevap);
       ilerleme(s, 'tamam');
     } catch (h) {
       hatayiIsle(s, h);
