@@ -26,13 +26,14 @@ export function servisKarti(s, { kompakt = false } = {}) {
     </div>
     ${s.not ? `<p class="soluk">${kacis(s.not)}</p>` : ''}
     ${yardim}
+    ${s.anahtarKaynagi ? `<p class="soluk">Anahtar: ${kacis(s.anahtarKaynagi === 'gemini' ? 'Gemini' : s.anahtarKaynagi)} anahtarını kullanır, ayrıca girmen gerekmez.</p>` : `
     <div class="alan">
       <label for="anahtar-${kacis(s.id)}">API anahtarı</label>
       <div class="anahtar-sarmal">
         <input id="anahtar-${kacis(s.id)}" type="password" autocomplete="off" spellcheck="false" data-alan="anahtar" value="${kacis(s.anahtar || '')}" placeholder="Anahtarı buraya yapıştır">
         <button type="button" class="dugme dugme-cerceve dugme-kucuk" data-eylem="goster" aria-label="Anahtarı göster ya da gizle">Göster</button>
       </div>
-    </div>
+    </div>`}
     ${kompakt ? '' : `
     <div class="alan">
       <label for="model-${kacis(s.id)}">Model</label>

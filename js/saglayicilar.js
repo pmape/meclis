@@ -28,6 +28,16 @@ export const YERLESIK_SERVISLER = [
     }
   },
   {
+    id: 'gemma',
+    ad: 'Gemma',
+    tur: 'gemini',
+    adres: 'https://generativelanguage.googleapis.com/v1beta',
+    model: 'gemma-3-27b-it',
+    anahtarKaynagi: 'gemini',
+    sistemYok: true,
+    not: 'Google\'ın açık modeli; Gemini anahtarınla çalışır, ayrı hesap gerekmez. Kotası bol (Gemma 3\'te günde 14.400 istek), Gemini meşgulken de cevap verir.'
+  },
+  {
     id: 'groq',
     ad: 'Groq',
     tur: 'openai',
@@ -57,6 +67,22 @@ export const YERLESIK_SERVISLER = [
         'Bağlantıyı aç ve giriş yap.',
         '"Create Key" düğmesine bas, bir isim ver.',
         'Anahtarı kopyalayıp aşağıya yapıştır. "openrouter/free" modeli o an çalışan ücretsiz modeli kendisi seçer.'
+      ]
+    }
+  },
+  {
+    id: 'sambanova',
+    ad: 'SambaNova',
+    tur: 'openai',
+    adres: 'https://api.sambanova.ai/v1',
+    model: 'DeepSeek-V3.1',
+    not: 'Ücretsiz, kart istemez. DeepSeek ve Llama modellerini sunar. Model başına günde sadece 20 istek.',
+    yardim: {
+      url: 'https://cloud.sambanova.ai/apis',
+      adimlar: [
+        'Bağlantıyı aç ve Google hesabınla ya da e-postanla kaydol.',
+        'API Keys sayfasında "Create API Key" (anahtar oluştur) düğmesine bas.',
+        'Anahtarı kopyalayıp aşağıya yapıştır. Model adı çalışmazsa "Modelleri getir" ile listeden DeepSeek ile başlayan birini seç.'
       ]
     }
   },
@@ -201,7 +227,13 @@ async function geminiSor(servis, mesajlar, zamanAsimi, sinyal, sicaklik) {
     .filter((m) => m.rol !== 'sistem')
     .map((m) => ({ role: m.rol === 'asistan' ? 'model' : 'user', parts: [{ text: m.icerik }] }));
   const govde = { contents: icerik, generationConfig: { temperature: sicaklik } };
-  if (sistem) govde.systemInstruction = { parts: [{ text: sistem }] };
+  if (sistem && servis.sistemYok) {
+    // Gemma gibi modeller ayrı sistem talimatını kabul etmez; talimat ilk mesajın başına eklenir.
+    const ilk = icerik.find((m) => m.role === 'user');
+    if (ilk) ilk.parts[0].text = `${sistem}\n\n${ilk.parts[0].text}`;
+  } else if (sistem) {
+    govde.systemInstruction = { parts: [{ text: sistem }] };
+  }
   const model = servis.model.replace(/^models\//, '');
   const veri = await istekGonder(
     `${servis.adres.replace(/\/$/, '')}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(servis.anahtar)}`,

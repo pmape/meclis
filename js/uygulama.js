@@ -19,7 +19,7 @@ const VARSAYILAN = {
   zamanAsimi: 90,
   servisler: YERLESIK_SERVISLER.map((s) => ({
     id: s.id, ad: s.ad, tur: s.tur, adres: s.adres, model: s.model,
-    modelFiltre: s.modelFiltre, acik: true, yerlesik: true
+    modelFiltre: s.modelFiltre, anahtarKaynagi: s.anahtarKaynagi, sistemYok: s.sistemYok, acik: true, yerlesik: true
   }))
 };
 
@@ -45,7 +45,16 @@ function yeniSohbet() {
 function servisler() {
   return d.ayarlar.servisler.map((s) => {
     const yerlesik = YERLESIK_SERVISLER.find((y) => y.id === s.id);
-    return { ...s, not: yerlesik?.not, yardim: yerlesik?.yardim, anahtar: d.anahtarlar[s.id] || '' };
+    // Gemma gibi bazı servisler başka bir servisin anahtarını kullanır.
+    const anahtarKaynagi = yerlesik?.anahtarKaynagi || s.anahtarKaynagi;
+    return {
+      ...s,
+      anahtarKaynagi,
+      sistemYok: yerlesik?.sistemYok ?? s.sistemYok,
+      not: yerlesik?.not,
+      yardim: yerlesik?.yardim,
+      anahtar: d.anahtarlar[anahtarKaynagi || s.id] || ''
+    };
   });
 }
 

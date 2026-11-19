@@ -6,7 +6,7 @@ Adres: **https://pmape.github.io/meclis/**
 
 ## Şu an neler var (1. aşama)
 
-- Soru aynı anda bütün hazır yapay zekalara gider: Gemini, Groq, OpenRouter, NVIDIA ve senin eklediklerin.
+- Soru aynı anda bütün hazır yapay zekalara gider: Gemini, Gemma, Groq, OpenRouter, SambaNova, NVIDIA ve senin eklediklerin.
 - **Oylama:** Başkan model cevapları özetler ve kaç yapay zekanın aynı çözümde birleştiğini gösterir.
 - **Dikkat çekilenler** ve **farklı görüşler** ayrı ayrı listelenir.
 - **İncelet:** Her yapay zeka diğerlerinin cevaplarını inceler, hata arar ve en iyi cevaba oy verir.
@@ -32,8 +32,10 @@ Başka bir bilgisayarda: aynı Drive klasörünü seçip şifreni girmen yeterli
 | Servis | Anahtar sayfası | Not |
 | --- | --- | --- |
 | Gemini | https://aistudio.google.com/apikey | Türkiye'de gönderilen veriler eğitimde kullanılabilir |
+| Gemma | Gemini anahtarını kullanır | Ayrı hesap gerekmez; kotası bol |
 | Groq | https://console.groq.com/keys | Çok hızlı; dakikada 30, günde 1.000 istek |
 | OpenRouter | https://openrouter.ai/keys | Günde 50 istek; `openrouter/free` o an çalışan ücretsiz modeli seçer |
+| SambaNova | https://cloud.sambanova.ai/apis | DeepSeek ve Llama modelleri; model başına günde 20 istek |
 | NVIDIA | https://build.nvidia.com | Telefon doğrulaması ister |
 
 Limitler Kasım 2026 araştırmasına göredir ve servisler tarafından değiştirilebilir.
