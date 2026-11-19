@@ -65,7 +65,7 @@ export function mdCevir(ham) {
 export function kisaOzet(ham, uzunluk = 110) {
   const temiz = String(ham ?? '')
     .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/[#*`>|_-]+/g, ' ')
+    .replace(/[#*`>|]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   return temiz.length > uzunluk ? temiz.slice(0, uzunluk - 1).trimEnd() + '…' : temiz;

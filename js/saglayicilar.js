@@ -36,12 +36,12 @@ export const YERLESIK_SERVISLER = [
     ad: 'Gemma',
     tur: 'gemini',
     adres: 'https://generativelanguage.googleapis.com/v1beta',
-    model: 'gemma-3-27b-it',
+    model: 'gemma-4-31b-it',
     sinir: 40000,
     resim: true,
     anahtarKaynagi: 'gemini',
     sistemYok: true,
-    not: 'Google\'ın açık modeli; Gemini anahtarınla çalışır, ayrı hesap gerekmez. Kotası bol (Gemma 3\'te günde 14.400 istek), Gemini meşgulken de cevap verir.'
+    not: 'Google\'ın açık modeli; Gemini anahtarınla çalışır, ayrı hesap gerekmez. Kotası bol, Gemini meşgulken de cevap verir. Model kaldırılırsa Meclis yenisini kendisi bulur.'
   },
   {
     id: 'groq',
@@ -176,11 +176,42 @@ export async function sor(servis, mesajlar, { zamanAsimi = 90, sinyal, sicaklik 
   } catch (h) {
     // Servis "bu model kapandı, şunu kullan" derse önerilen modelle bir kez daha dene.
     // Çağıran taraf yeniModel'i görünce ayarları kendisi günceller.
-    const oneri = onerilenModel(h, servis.model);
+    let oneri = onerilenModel(h, servis.model);
+    // Gemini/Gemma: model kaldırıldıysa ya da yazı üretmiyorsa güncel listeden en uygun modeli bul.
+    if (!oneri && servis.tur === 'gemini' && modelSorunuMu(h)) {
+      try { oneri = enUygunModel(await modelleriGetir(servis), servis.model); } catch { oneri = null; }
+    }
     if (!oneri) throw h;
     const sonuc = await calistir({ ...servis, model: oneri });
     return { ...sonuc, yeniModel: oneri };
   }
+}
+
+function modelSorunuMu(h) {
+  if (!(h instanceof BaglantiHatasi)) return false;
+  return h.durumKodu === 404 || /response modalit|not found|not supported|is not available|no longer available/i.test(h.message);
+}
+
+// Yazı üretmeyen modeller (resim, ses, canlı, gömme...) listeden ayıklanır.
+const YAZI_DISI = /(image|imagen|tts|audio|live|embedding|aqa|veo|robotics|computer-use|native|learnlm|-exp-\d|vision-only)/i;
+
+function surumNumarasi(ad) {
+  const m = String(ad).match(/-(\d+(?:\.\d+)?)/);
+  return m ? parseFloat(m[1]) : 0;
+}
+
+// Aynı aileden (gemini ya da gemma) en yeni ve uygun yazı modelini seçer.
+export function enUygunModel(liste, eskiModel) {
+  const aile = String(eskiModel).replace(/^models\//, '').startsWith('gemma') ? 'gemma' : 'gemini';
+  const adaylar = liste.filter((m) => m.startsWith(aile) && !YAZI_DISI.test(m) && m !== eskiModel);
+  if (!adaylar.length) return null;
+  const puan = (m) => {
+    let p = surumNumarasi(m) * 100;
+    if (aile === 'gemini') { if (/flash/.test(m) && !/lite/.test(m)) p += 20; if (/pro/.test(m)) p += 5; if (/preview/.test(m)) p -= 3; }
+    if (aile === 'gemma') { if (/-it\b/.test(m)) p += 20; const b = m.match(/(\d+)b/); if (b) p += Math.min(+b[1], 40) / 4; }
+    return p;
+  };
+  return adaylar.sort((a, b) => puan(b) - puan(a))[0];
 }
 
 // "... is no longer available ... use models/gemini-3.8-flash ..." gibi mesajlardan yeni model adını çıkarır.
@@ -275,6 +306,7 @@ export async function modelleriGetir(servis) {
     return (veri.models || [])
       .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
       .map((m) => m.name.replace(/^models\//, ''))
+      .filter((m) => !YAZI_DISI.test(m))
       .sort();
   }
   const veri = await istekGonder(

@@ -27,9 +27,11 @@ export function durumAyarla(id, durum, mesaj = '') {
 
 export function durumAl(id) { return durumlar.get(id); }
 
-export function dinlenmeyeAl(id, saniye) {
+const NEDEN_YAZI = { kota: 'Kota doldu', baglanti: 'Bağlanamıyor' };
+
+export function dinlenmeyeAl(id, saniye, neden = 'kota') {
   const sure = (saniye && saniye > 0 ? saniye : VARSAYILAN_DINLENME_DK * 60) * 1000;
-  dinlenme[id] = Date.now() + sure;
+  dinlenme[id] = { bitis: Date.now() + sure, neden };
   kaydet();
   bildir();
 }
@@ -42,7 +44,8 @@ export function dinlenmeBitti(id) {
 
 // Dinlenmedeyse kalan dakikayı döndürür, değilse 0.
 export function dinlenmeKalan(id) {
-  const bitis = dinlenme[id];
+  const k = dinlenme[id];
+  const bitis = typeof k === 'number' ? k : k?.bitis;
   if (!bitis) return 0;
   const kalan = bitis - Date.now();
   if (kalan <= 0) { delete dinlenme[id]; kaydet(); return 0; }
@@ -59,7 +62,10 @@ export function servisEtiketi(servis) {
     if (!servis.model) return { kullanilir: false, renk: 'gri', metin: 'Model seçilmedi' };
   }
   const kalan = dinlenmeKalan(servis.id);
-  if (kalan) return { kullanilir: false, renk: 'kirmizi', metin: `Kota doldu · ~${kalan} dk` };
+  if (kalan) {
+    const neden = NEDEN_YAZI[dinlenme[servis.id]?.neden] || 'Kota doldu';
+    return { kullanilir: false, renk: 'kirmizi', metin: `${neden} · ~${kalan} dk`, mesaj: durumlar.get(servis.id)?.mesaj };
+  }
   const d = durumlar.get(servis.id);
   if (d?.durum === 'bekliyor') return { kullanilir: true, renk: 'mavi', metin: 'Düşünüyor' };
   if (d?.durum === 'hata') return { kullanilir: true, renk: 'sari', metin: 'Son turda hata', mesaj: d.mesaj };

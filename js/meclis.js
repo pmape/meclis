@@ -40,6 +40,10 @@ export function hatayiIsle(servis, h) {
     durumAyarla(servis.id, 'doldu', h.message);
   } else if (h instanceof AnahtarHatasi) {
     durumAyarla(servis.id, 'anahtar', h.message);
+  } else if (servis.tur !== 'site' && /^Servise bağlanılamadı/.test(h?.message || '')) {
+    // Tarayıcıdan bağlantıya izin vermeyen servis her turda boşuna denenmesin.
+    dinlenmeyeAl(servis.id, 30 * 60, 'baglanti');
+    durumAyarla(servis.id, 'hata', h.message);
   } else {
     durumAyarla(servis.id, 'hata', h?.message || String(h));
   }
