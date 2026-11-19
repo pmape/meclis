@@ -8,7 +8,7 @@ import { klasorDestekleniyor, klasorAdi } from './depolama.js';
 import { servisKarti, servisKartlariniBagla } from './ayarlar.js';
 import { servisEtiketi } from './durum.js';
 
-function pencereAc(icerik) {
+export function pencereAc(icerik) {
   const p = document.getElementById('pencere');
   p.innerHTML = `<div class="pencere" role="dialog" aria-modal="true" aria-labelledby="pencereBaslik">${icerik}</div>`;
   p.hidden = false;
@@ -106,7 +106,7 @@ export function sihirbaziBaslat(u) {
   }
 
   function adim3() {
-    const servisler = u.servisler().filter((s) => s.yerlesik);
+    const servisler = u.servisler().filter((s) => s.yerlesik && s.tur !== 'site');
     const p = pencereAc(`
       ${adimCubugu(3)}
       <h2 id="pencereBaslik">Ücretsiz anahtarları gir</h2>

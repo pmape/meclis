@@ -5,8 +5,30 @@ import { kacis } from './metin.js';
 import { modelleriGetir, dene, AnahtarHatasi } from './saglayicilar.js';
 import { durumAyarla, dinlenmeBitti, servisEtiketi } from './durum.js';
 import { klasorDestekleniyor, klasorAdi } from './depolama.js';
+import { eklentiBagli, eklentiSurumu } from './eklenti-baglanti.js';
+
+function siteKarti(s) {
+  const e = servisEtiketi(s);
+  return `
+  <div class="kart servis" data-servis="${kacis(s.id)}">
+    <div class="servis-ust">
+      <h3>${kacis(s.ad)}</h3>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <span class="etiket etiket-${e.renk}">${kacis(e.metin)}</span>
+        <label class="anahtar-cek"><input type="checkbox" data-alan="acik" ${s.acik ? 'checked' : ''}> Kullan</label>
+      </div>
+    </div>
+    <p class="soluk">${s.onemli ? 'Ücretli aboneliğinden kota harcar; bu yüzden sadece "Önemli tur" açıkken katılır. ' : ''}Önce Chrome'da bu siteye giriş yapmış olman gerekir.</p>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <a class="dugme dugme-cerceve dugme-kucuk" href="${kacis(s.adres)}" target="_blank" rel="noopener">Siteyi aç</a>
+      ${eklentiBagli() ? '<button type="button" class="dugme dugme-cerceve dugme-kucuk" data-eylem="dene">Dene</button>' : ''}
+      <span class="anahtar-sonuc" data-sonuc aria-live="polite"></span>
+    </div>
+  </div>`;
+}
 
 export function servisKarti(s, { kompakt = false } = {}) {
+  if (s.tur === 'site') return siteKarti(s);
   const e = servisEtiketi(s);
   const yardim = s.yardim
     ? `<details class="anahtar-yardim">
@@ -177,7 +199,7 @@ export function ayarlariCiz(kap, u) {
         <div class="alan">
           <label for="ayBaskan">Başkan model</label>
           <select id="ayBaskan">
-            ${servisler.map((s) => `<option value="${kacis(s.id)}" ${s.id === a.baskanId ? 'selected' : ''}>${kacis(s.ad)}</option>`).join('')}
+            ${servisler.filter((s) => s.tur !== 'site').map((s) => `<option value="${kacis(s.id)}" ${s.id === a.baskanId ? 'selected' : ''}>${kacis(s.ad)}</option>`).join('')}
           </select>
           <span class="soluk" style="font-size:14px">Cevapları özetler ve oylamayı çıkarır. Çalışmazsa sıradaki dener.</span>
         </div>
@@ -206,7 +228,26 @@ export function ayarlariCiz(kap, u) {
       <h2>Yapay zekalar</h2>
       <p class="soluk">Anahtarlar şifrenle kilitlenip veri klasörüne kaydedilir. Bir servis tarayıcıdan bağlanmaya izin vermezse "Dene" bunu gösterir.</p>
     </section>
-    ${servisler.map((s) => servisKarti(s)).join('')}
+    ${servisler.filter((s) => s.tur !== 'site').map((s) => servisKarti(s)).join('')}
+
+    <section class="kart servis">
+      <h2>Siteler (Chrome eklentisi)</h2>
+      <p class="soluk">Eklenti: <strong>${eklentiBagli() ? `bağlı${eklentiSurumu() ? ` (sürüm ${kacis(eklentiSurumu())})` : ''}` : 'bağlı değil'}</strong>. Eklenti, DeepSeek, Kimi, ChatGPT, Grok, Gemini ve Claude sitelerini senin açık oturumunla arka sekmelerde kullanıp cevapları Meclis'e getirir.</p>
+      ${eklentiBagli() ? '' : `<details class="anahtar-yardim" open>
+        <summary>Eklenti nasıl kurulur?</summary>
+        <ol>
+          <li><a href="https://github.com/pmape/meclis/archive/refs/heads/main.zip">Meclis'in dosyalarını indir</a> ve zip dosyasını bir klasöre çıkar.</li>
+          <li>Chrome'da adres çubuğuna <code>chrome://extensions</code> yaz ve aç.</li>
+          <li>Sağ üstteki <strong>Geliştirici modu</strong> anahtarını aç.</li>
+          <li><strong>Paketlenmemiş öğe yükle</strong> düğmesine bas ve çıkardığın klasörün içindeki <strong>eklenti</strong> klasörünü seç.</li>
+          <li>Bu sayfayı yenile. Burada "bağlı" yazmalı.</li>
+          <li>Aşağıdaki sitelere "Siteyi aç" ile girip Chrome'da oturum aç.</li>
+        </ol>
+      </details>`}
+      <label class="anahtar-cek"><input type="checkbox" id="aySitelerKodda" ${a.sitelerKodda !== false ? 'checked' : ''}> Siteler kod adımlarına kendiliğinden katılsın</label>
+      <p class="soluk" style="font-size:14px">Normal sorularda siteleri yazma kutusundaki "Siteler" düğmesiyle açarsın.</p>
+    </section>
+    ${servisler.filter((s) => s.tur === 'site').map((s) => servisKarti(s)).join('')}
 
     <section class="kart servis">
       <h2>Yapay zeka ekle</h2>
@@ -235,6 +276,7 @@ export function ayarlariCiz(kap, u) {
   kap.querySelector('#ayBaskan').addEventListener('change', async (o) => { a.baskanId = o.target.value; await u.ayarlariKaydet(); });
   kap.querySelector('#ayEsik').addEventListener('change', async (o) => { a.esik = Math.max(1, parseInt(o.target.value, 10) || 3); await u.ayarlariKaydet(); });
   kap.querySelector('#aySure').addEventListener('change', async (o) => { a.zamanAsimi = Math.min(300, Math.max(20, parseInt(o.target.value, 10) || 90)); await u.ayarlariKaydet(); });
+  kap.querySelector('#aySitelerKodda').addEventListener('change', async (o) => { a.sitelerKodda = o.target.checked; await u.ayarlariKaydet(); });
   kap.querySelector('#ayKlasor')?.addEventListener('click', () => u.klasorDegistir());
   kap.querySelector('#ayUnut')?.addEventListener('click', async () => { await u.cihazdaUnut(); u.ayarlariCiz(); });
   kap.querySelector('#aySihirbaz').addEventListener('click', () => u.sihirbaziAc());

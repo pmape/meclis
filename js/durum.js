@@ -1,3 +1,5 @@
+import { eklentiBagli } from './eklenti-baglanti.js';
+
 // Her yapay zekanın anlık durumu: hazır, bekliyor, kota doldu, hata...
 // Kotası dolan servis bir süre dinlenmeye alınır, süre bitince kendiliğinden geri döner.
 
@@ -50,8 +52,12 @@ export function dinlenmeKalan(id) {
 // Servisin bu turda kullanılıp kullanılamayacağını ve görünen etiketi verir.
 export function servisEtiketi(servis) {
   if (!servis.acik) return { kullanilir: false, renk: 'gri', metin: 'Kapalı' };
-  if (!servis.anahtar) return { kullanilir: false, renk: 'gri', metin: 'Anahtar yok' };
-  if (!servis.model) return { kullanilir: false, renk: 'gri', metin: 'Model seçilmedi' };
+  if (servis.tur === 'site') {
+    if (!eklentiBagli()) return { kullanilir: false, renk: 'gri', metin: 'Eklenti yok' };
+  } else {
+    if (!servis.anahtar) return { kullanilir: false, renk: 'gri', metin: 'Anahtar yok' };
+    if (!servis.model) return { kullanilir: false, renk: 'gri', metin: 'Model seçilmedi' };
+  }
   const kalan = dinlenmeKalan(servis.id);
   if (kalan) return { kullanilir: false, renk: 'kirmizi', metin: `Kota doldu · ~${kalan} dk` };
   const d = durumlar.get(servis.id);

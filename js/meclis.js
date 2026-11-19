@@ -1,12 +1,13 @@
-// Bir "Meclis turu": soru bütün yapay zekalara aynı anda gider, cevaplar toplanır,
+// Bir "Meclis turu": istek bütün yapay zekalara aynı anda gider, cevaplar toplanır,
 // başkan model cevapları özetleyip kimin hangi çözümde birleştiğini çıkarır.
 // İstenirse "İncelet" ile her model diğerlerinin cevaplarını inceler ve oy verir.
 
 import { sor, KotaHatasi, AnahtarHatasi } from './saglayicilar.js';
 import { durumAyarla, dinlenmeyeAl, servisEtiketi } from './durum.js';
 import { jsonCikar, kirp } from './metin.js';
+import { dosyalariMetneCevir } from './dosyalar.js';
 
-const CEVAP_SISTEMI = `Sen "Meclis" adlı bir uygulamada aynı soruyu cevaplayan birkaç yapay zekadan birisin.
+export const CEVAP_SISTEMI = `Sen "Meclis" adlı bir uygulamada aynı soruyu cevaplayan birkaç yapay zekadan birisin.
 Kullanıcı kod bilmiyor; fikir üretiyor ve kodu yapay zekalara yazdırıyor.
 Kurallar:
 - Türkçe, sade ve net yaz. Teknik terim kullanırsan kısaca açıkla.
@@ -14,20 +15,26 @@ Kurallar:
 - Kod verirsen eksiksiz ve çalışır halde ver; nereye konacağını açıkça söyle.
 - Emin olmadığın yeri açıkça belirt, uydurma.`;
 
-const BASKAN_SISTEMI = `Sen "Meclis"in başkanısın. Birkaç yapay zeka aynı soruya cevap verdi.
+const BASKAN_SISTEMI = `Sen "Meclis"in başkanısın. Birkaç yapay zeka aynı isteğe cevap verdi.
 Görevin cevapları tarafsızca karşılaştırıp kod bilmeyen kullanıcıya sade Türkçe bir özet çıkarmak.
 SADECE geçerli JSON döndür, başka hiçbir şey yazma.`;
 
-const INCELEME_SISTEMI = `Sen "Meclis"te bir incelemecisin. Aynı soruya birkaç yapay zeka cevap verdi.
+const INCELEME_SISTEMI = `Sen "Meclis"te bir incelemecisin. Aynı isteğe birkaç yapay zeka cevap verdi.
 Cevapları dikkatle incele: hatalı bilgi, çalışmayacak kod, eksik adım, risk ara.
 Kendi cevabın da listede olabilir; tarafsız ol.
 SADECE geçerli JSON döndür, başka hiçbir şey yazma.`;
 
-export function kullanilabilirServisler(servisler) {
-  return servisler.filter((s) => servisEtiketi(s).kullanilir);
+// secenek.siteler: site katılımcıları (eklenti) bu tura katılsın mı
+// secenek.onemli: "önemli tur" — Claude gibi kısıtlı siteler de katılsın
+export function kullanilabilirServisler(servisler, secenek = {}) {
+  return servisler.filter((s) => {
+    if (!servisEtiketi(s).kullanilir) return false;
+    if (s.tur === 'site') return !!secenek.siteler && (!s.onemli || !!secenek.onemli);
+    return true;
+  });
 }
 
-function hatayiIsle(servis, h) {
+export function hatayiIsle(servis, h) {
   if (h instanceof KotaHatasi) {
     dinlenmeyeAl(servis.id, h.bekleSaniye);
     durumAyarla(servis.id, 'doldu', h.message);
@@ -38,33 +45,43 @@ function hatayiIsle(servis, h) {
   }
 }
 
-function soruMetni(soru, baglam) {
-  if (!baglam) return soru;
-  return `Önceki soru: ${baglam.oncekiSoru}
+export const sinirAl = (servis) => servis.sinir || (servis.tur === 'site' ? 30000 : 60000);
 
-Kullanıcının bu soruya gelen cevaplar arasından seçtiği cevap (${baglam.secilenAd}):
-${kirp(baglam.secilenMetin, 4000)}
-
-Yeni soru (seçilen cevaptan devam ederek cevapla):
-${soru}`;
+// Normal bir soru için her servise gidecek mesajlar (dosyalar servisin sınırına göre kısaltılır).
+export function soruMesajlari(servis, { soru, baglam, ekler, projeBaglami }) {
+  const sinir = sinirAl(servis);
+  const parcalar = [];
+  if (projeBaglami) parcalar.push(kirp(projeBaglami, Math.floor(sinir * 0.25)));
+  if (baglam) {
+    parcalar.push(`Önceki soru: ${baglam.oncekiSoru}\n\nKullanıcının bu soruya gelen cevaplar arasından seçtiği cevap (${baglam.secilenAd}):\n${kirp(baglam.secilenMetin, Math.min(6000, Math.floor(sinir * 0.2)))}`);
+  }
+  if (ekler?.dosyalar?.length) {
+    const kalan = Math.max(3000, sinir - parcalar.join('').length - soru.length - 2000);
+    const { metin, kisaltildi } = dosyalariMetneCevir(ekler.dosyalar, kalan);
+    parcalar.push(`Kullanıcının eklediği dosyalar${kisaltildi ? ' (bazı kısımlar yer sınırı nedeniyle kısaltıldı)' : ''}:\n\n${metin}`);
+  }
+  const resimVar = ekler?.resimler?.length;
+  if (resimVar && !servis.resim) parcalar.push(`[Kullanıcı ${ekler.resimler.length} resim ekledi ama sen resim göremiyorsun; cevabında resme dayanan yorum yapma.]`);
+  parcalar.push(baglam ? `Yeni soru (seçilen cevaptan devam ederek cevapla):\n${soru}` : soru);
+  return [
+    { rol: 'sistem', icerik: CEVAP_SISTEMI },
+    { rol: 'kullanici', icerik: parcalar.join('\n\n---\n\n'), resimler: resimVar ? ekler.resimler : undefined }
+  ];
 }
 
-// Soru bütün kullanılabilir servislere aynı anda gider.
-export async function turBaslat({ soru, baglam, servisler, zamanAsimi = 90, ilerleme = () => {} }) {
-  const katilanlar = kullanilabilirServisler(servisler);
-  const mesajlar = [
-    { rol: 'sistem', icerik: CEVAP_SISTEMI },
-    { rol: 'kullanici', icerik: soruMetni(soru, baglam) }
-  ];
+// İstek bütün kullanılabilir servislere aynı anda gider.
+// mesajUret(servis) her servis için mesaj listesini döndürür.
+export async function turBaslat({ soru, mesajUret, servisler, secenek = {}, zamanAsimi = 90, ilerleme = () => {}, ek = {} }) {
+  const katilanlar = kullanilabilirServisler(servisler, secenek);
   const tur = {
     id: `tur-${Date.now()}`,
+    tip: 'soru',
     zaman: new Date().toISOString(),
     soru,
-    baglam: baglam ? { oncekiSoru: baglam.oncekiSoru, secilenAd: baglam.secilenAd } : null,
     cevaplar: [],
     ozet: null,
     inceleme: null,
-    secilen: null
+    ...ek
   };
 
   await Promise.all(katilanlar.map(async (s) => {
@@ -72,9 +89,10 @@ export async function turBaslat({ soru, baglam, servisler, zamanAsimi = 90, iler
     durumAyarla(s.id, 'bekliyor');
     ilerleme(s, 'bekliyor');
     try {
-      const { metin, model, yeniModel } = await sor(s, mesajlar, { zamanAsimi });
+      const { metin, model, yeniModel } = await sor(s, mesajUret(s), { zamanAsimi: s.tur === 'site' ? Math.max(zamanAsimi, 150) : zamanAsimi });
       durumAyarla(s.id, 'hazir');
       const cevap = { servisId: s.id, ad: s.ad, model, metin, sure: Math.round((performance.now() - bas) / 1000) };
+      if (s.tur === 'site') cevap.site = true;
       if (yeniModel) cevap.yeniModel = yeniModel;
       tur.cevaplar.push(cevap);
       ilerleme(s, 'tamam');
@@ -85,32 +103,45 @@ export async function turBaslat({ soru, baglam, servisler, zamanAsimi = 90, iler
     }
   }));
 
-  // Sıra servis listesindeki sıraya göre olsun (cevap geliş sırasına göre değil).
   const sira = servisler.map((s) => s.id);
   tur.cevaplar.sort((a, b) => sira.indexOf(a.servisId) - sira.indexOf(b.servisId));
   return tur;
 }
 
-function basariliCevaplar(tur) { return tur.cevaplar.filter((c) => !c.hata); }
+export function basariliCevaplar(tur) { return tur.cevaplar.filter((c) => !c.hata); }
 
 function cevapListesi(cevaplar, uzunluk) {
   return cevaplar.map((c) => `[${c.ad}]\n${kirp(c.metin, uzunluk)}`).join('\n\n---\n\n');
 }
 
-// Başkan olarak sırayla denenecek servisler: önce kullanıcının seçtiği, sonra bu turda cevap verenler.
-function baskanAdaylari(tur, servisler, baskanId) {
-  const cevapVerenler = new Set(basariliCevaplar(tur).map((c) => c.servisId));
-  const adaylar = kullanilabilirServisler(servisler).filter((s) => cevapVerenler.has(s.id));
-  adaylar.sort((a, b) => (b.id === baskanId) - (a.id === baskanId));
-  return adaylar;
+// Başkan olarak sırayla denenecek API servisleri: önce kullanıcının seçtiği.
+function baskanAdaylari(servisler, baskanId, tercih) {
+  const adaylar = kullanilabilirServisler(servisler).filter((s) => s.tur !== 'site');
+  const puan = (s) => (s.id === baskanId ? 2 : 0) + (tercih?.has(s.id) ? 1 : 0);
+  return adaylar.sort((a, b) => puan(b) - puan(a));
+}
+
+// Başkana tek bir istek gönderir (görüşme, plan çıkarma gibi işler için).
+export async function baskanaSor(servisler, baskanId, mesajlar, { deneme = 3, json = true } = {}) {
+  for (const baskan of baskanAdaylari(servisler, baskanId).slice(0, deneme)) {
+    try {
+      const { metin } = await sor(baskan, mesajlar, { zamanAsimi: 120, sicaklik: 0.3 });
+      if (!json) return { metin, baskan: baskan.ad };
+      const j = jsonCikar(metin);
+      if (j) return { veri: j, baskan: baskan.ad };
+    } catch (h) {
+      hatayiIsle(baskan, h);
+    }
+  }
+  return null;
 }
 
 export async function ozetle(tur, servisler, baskanId) {
   const cevaplar = basariliCevaplar(tur);
   if (cevaplar.length === 0) return null;
   const adlar = cevaplar.map((c) => c.ad);
-  const istek = `Soru:
-${tur.soru}
+  const istek = `İstek:
+${kirp(tur.soru, 3000)}
 
 Cevaplar:
 ${cevapListesi(cevaplar, 3500)}
@@ -123,11 +154,12 @@ ${cevapListesi(cevaplar, 3500)}
   "dikkat": [{"model": "ad", "not": "bir modelin dikkat çektiği risk ya da uyarı, tek cümle"}],
   "kisa_ozetler": {"model adı": "o modelin cevabı, en fazla 12 kelime"}
 }`;
-  for (const baskan of baskanAdaylari(tur, servisler, baskanId).slice(0, 2)) {
+  const tercih = new Set(cevaplar.map((c) => c.servisId));
+  for (const baskan of baskanAdaylari(servisler, baskanId, tercih).slice(0, 2)) {
     try {
       const { metin } = await sor(baskan, [
         { rol: 'sistem', icerik: BASKAN_SISTEMI },
-        { rol: 'kullanici', icerik: istek }
+        { rol: 'kullanici', icerik: kirp(istek, Math.max(15000, sinirAl(baskan) - 2000)) }
       ], { zamanAsimi: 90, sicaklik: 0.2 });
       const j = jsonCikar(metin);
       if (!j || typeof j.ortak_cozum !== 'string') continue;
@@ -150,15 +182,18 @@ ${cevapListesi(cevaplar, 3500)}
 }
 
 // Her model bütün cevapları inceler, sorunları bulur ve en iyi cevaba oy verir.
-export async function incelet(tur, servisler, ilerleme = () => {}) {
+// ekTalimat: örneğin kod adımlarında "çalışması gerekenler listesi bozuluyor mu" kontrolü.
+export async function incelet(tur, servisler, ilerleme = () => {}, { secenek = {}, ekTalimat = '' } = {}) {
   const cevaplar = basariliCevaplar(tur);
   if (cevaplar.length < 2) return null;
   const adlar = cevaplar.map((c) => c.ad);
-  const istek = `Soru:
-${tur.soru}
-
+  const istekUret = (s) => {
+    const pay = Math.max(1500, Math.min(12000, Math.floor((sinirAl(s) - 4000) / cevaplar.length)));
+    return `İstek:
+${kirp(tur.soru, 2500)}
+${ekTalimat ? `\n${ekTalimat}\n` : ''}
 Cevaplar:
-${cevapListesi(cevaplar, 2500)}
+${cevapListesi(cevaplar, pay)}
 
 Şu JSON'u doldur (cevap adları tam olarak şunlardan biri olmalı: ${adlar.join(', ')}):
 {
@@ -166,7 +201,8 @@ ${cevapListesi(cevaplar, 2500)}
   "en_iyi": "en doğru ve kullanışlı cevabın adı",
   "neden": "neden o cevap, tek cümle"
 }`;
-  const incelemeciler = kullanilabilirServisler(servisler);
+  };
+  const incelemeciler = kullanilabilirServisler(servisler, secenek);
   const oylar = {};
   const sorunlar = [];
   const gerekceler = [];
@@ -178,8 +214,8 @@ ${cevapListesi(cevaplar, 2500)}
     try {
       const { metin } = await sor(s, [
         { rol: 'sistem', icerik: INCELEME_SISTEMI },
-        { rol: 'kullanici', icerik: istek }
-      ], { zamanAsimi: 90, sicaklik: 0.2 });
+        { rol: 'kullanici', icerik: istekUret(s) }
+      ], { zamanAsimi: s.tur === 'site' ? 150 : 90, sicaklik: 0.2 });
       durumAyarla(s.id, 'hazir');
       const j = jsonCikar(metin);
       if (!j) { ilerleme(s, 'hata', 'Anlaşılır bir inceleme döndürmedi'); return; }
@@ -201,4 +237,27 @@ ${cevapListesi(cevaplar, 2500)}
   if (katilan === 0) return null;
   tur.inceleme = { oylar, sorunlar, gerekceler, katilan, zaman: new Date().toISOString() };
   return tur.inceleme;
+}
+
+// Her servise aynı isteği gönderip cevapları toplar (proje incelemesi, arayüz yarışması gibi işler için).
+export async function herkesten(servisler, mesajUret, { secenek = {}, ilerleme = () => {}, zamanAsimi = 120, json = true } = {}) {
+  const katilanlar = kullanilabilirServisler(servisler, secenek);
+  const sonuclar = [];
+  await Promise.all(katilanlar.map(async (s) => {
+    durumAyarla(s.id, 'bekliyor');
+    ilerleme(s, 'bekliyor');
+    try {
+      const { metin, yeniModel } = await sor(s, mesajUret(s), { zamanAsimi: s.tur === 'site' ? Math.max(zamanAsimi, 150) : zamanAsimi, sicaklik: 0.3 });
+      durumAyarla(s.id, 'hazir');
+      const veri = json ? jsonCikar(metin) : null;
+      if (json && !veri) { ilerleme(s, 'hata', 'Anlaşılır bir cevap döndürmedi'); return; }
+      sonuclar.push({ servisId: s.id, ad: s.ad, metin, veri, yeniModel });
+      ilerleme(s, 'tamam');
+    } catch (h) {
+      hatayiIsle(s, h);
+      ilerleme(s, 'hata', h?.message);
+    }
+  }));
+  const sira = servisler.map((s) => s.id);
+  return sonuclar.sort((a, b) => sira.indexOf(a.servisId) - sira.indexOf(b.servisId));
 }

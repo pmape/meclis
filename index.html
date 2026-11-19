@@ -37,8 +37,11 @@
     </div>
 
     <div class="menu-grup">
-      <span class="menu-baslik">Projeler</span>
-      <p class="menu-not">2. aşamada gelecek.</p>
+      <div class="menu-baslik-satir">
+        <span class="menu-baslik">Projeler</span>
+        <button type="button" class="dugme dugme-sade dugme-kucuk" id="yeniProje">+ Yeni</button>
+      </div>
+      <div id="projeListe"></div>
     </div>
 
     <div class="menu-grup menu-gecmis">
@@ -60,6 +63,7 @@
         <h1 id="ustBaslik">Yeni sohbet</h1>
       </div>
       <div class="ust-sag">
+        <div id="ustEylemler" class="ust-eylemler"></div>
         <span class="hap" id="katilimciSayisi">0 katılımcı</span>
       </div>
     </header>
@@ -69,10 +73,18 @@
 
       <div class="yazma">
         <form class="yazma-kutu" id="soruFormu">
-          <label for="soru" class="yazma-etiket">Meclis'e sor</label>
-          <textarea id="soru" rows="2" placeholder="Sorunu ya da fikrini yaz..."></textarea>
+          <label for="soru" class="yazma-etiket" id="soruEtiket">Meclis'e sor</label>
+          <div id="ekListesi" class="ek-listesi" hidden></div>
+          <textarea id="soru" rows="2" placeholder="Sorunu ya da fikrini yaz... Dosyaları buraya sürükleyip bırakabilirsin."></textarea>
           <div class="yazma-alt">
             <div class="yazma-secenekler">
+              <button type="button" class="hap hap-dugme" id="dosyaEkle" aria-label="Dosya ekle">
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 4.5l-5 5a1.4 1.4 0 0 0 2 2l5.5-5.5a2.8 2.8 0 0 0-4-4L3.5 7.5a4.2 4.2 0 0 0 6 6l4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Dosya ekle
+              </button>
+              <input type="file" id="dosyaGirdi" multiple hidden>
+              <button type="button" class="hap hap-dugme" id="siteDugme" aria-pressed="false" hidden>Siteler: kapalı</button>
+              <button type="button" class="hap hap-dugme" id="onemliDugme" aria-pressed="false" hidden>Önemli tur: hayır</button>
               <span class="hap hap-mavi" id="secimBilgisi" hidden></span>
               <button type="button" class="hap hap-dugme" id="secimiKaldir" hidden>Seçimi kaldır</button>
             </div>
@@ -89,14 +101,11 @@
   </main>
 
   <!-- SAĞ PANEL -->
-  <aside class="panel" aria-label="Durum paneli">
+  <aside class="panel" aria-label="Proje paneli" id="panel">
+    <div id="projePanel"></div>
     <section>
       <h2>Yapay zeka durumu</h2>
       <div id="panelDurum" class="durum-liste"></div>
-    </section>
-    <section class="kart">
-      <h2>Proje paneli</h2>
-      <p class="soluk">Hafıza, yol haritası, çalışması gerekenler listesi ve önizleme 2. aşamada buraya gelecek.</p>
     </section>
   </aside>
 </div>

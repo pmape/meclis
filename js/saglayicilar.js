@@ -1,3 +1,5 @@
+import { sitedenSor } from './eklenti-baglanti.js';
+
 // Yapay zeka servisleriyle konuşan kısım.
 // Servislerin çoğu ortak bir "dil" (OpenAI uyumlu istek biçimi) konuşur;
 // Gemini kendi biçimini kullanır. Yeni bir servis eklemek için kod yazmak
@@ -17,6 +19,8 @@ export const YERLESIK_SERVISLER = [
     tur: 'gemini',
     adres: 'https://generativelanguage.googleapis.com/v1beta',
     model: 'gemini-3.8-flash',
+    sinir: 400000,
+    resim: true,
     not: 'Ücretsiz; limitler model başına ve AI Studio\'da görünür. Türkiye\'de gönderilen veriler eğitimde kullanılabilir.',
     yardim: {
       url: 'https://aistudio.google.com/apikey',
@@ -33,6 +37,8 @@ export const YERLESIK_SERVISLER = [
     tur: 'gemini',
     adres: 'https://generativelanguage.googleapis.com/v1beta',
     model: 'gemma-3-27b-it',
+    sinir: 40000,
+    resim: true,
     anahtarKaynagi: 'gemini',
     sistemYok: true,
     not: 'Google\'ın açık modeli; Gemini anahtarınla çalışır, ayrı hesap gerekmez. Kotası bol (Gemma 3\'te günde 14.400 istek), Gemini meşgulken de cevap verir.'
@@ -43,6 +49,7 @@ export const YERLESIK_SERVISLER = [
     tur: 'openai',
     adres: 'https://api.groq.com/openai/v1',
     model: 'openai/gpt-oss-120b',
+    sinir: 20000,
     not: 'Ücretsiz; model başına dakikada 30, günde 1.000 istek. Çok hızlı.',
     yardim: {
       url: 'https://console.groq.com/keys',
@@ -59,6 +66,7 @@ export const YERLESIK_SERVISLER = [
     tur: 'openai',
     adres: 'https://openrouter.ai/api/v1',
     model: 'openrouter/free',
+    sinir: 120000,
     modelFiltre: 'ucretsiz',
     not: 'Tek anahtarla birçok ücretsiz model; dakikada 20, günde 50 istek (bir kerelik 10 dolar yüklemeden sonra 1.000).',
     yardim: {
@@ -76,6 +84,7 @@ export const YERLESIK_SERVISLER = [
     tur: 'openai',
     adres: 'https://api.sambanova.ai/v1',
     model: 'DeepSeek-V3.1',
+    sinir: 60000,
     not: 'Ücretsiz, kart istemez. DeepSeek ve Llama modellerini sunar. Model başına günde sadece 20 istek.',
     yardim: {
       url: 'https://cloud.sambanova.ai/apis',
@@ -156,6 +165,7 @@ function hataMetniniCikar(metin) {
 
 // mesajlar: [{ rol: 'sistem' | 'kullanici' | 'asistan', icerik: '...' }]
 export async function sor(servis, mesajlar, { zamanAsimi = 90, sinyal, sicaklik = 0.7 } = {}) {
+  if (servis.tur === 'site') return siteSor(servis, mesajlar, zamanAsimi);
   if (!servis.anahtar) throw new AnahtarHatasi('Anahtar girilmemiş');
   if (!servis.model) throw new AnahtarHatasi('Model seçilmemiş');
   const calistir = (s) => (s.tur === 'gemini'
@@ -182,6 +192,19 @@ export function onerilenModel(hata, eskiModel) {
   return oneri && oneri !== String(eskiModel).replace(/^models\//, '') ? oneri : null;
 }
 
+// Siteler (DeepSeek, Kimi...) Chrome eklentisi aracılığıyla sorulur. Talimat ve soru tek mesajda gider.
+async function siteSor(servis, mesajlar, zamanAsimi) {
+  const metin = mesajlar.map((m) => m.icerik).join('\n\n');
+  try {
+    const cevap = await sitedenSor(servis.site, metin, { zamanAsimi: Math.max(zamanAsimi, 120) });
+    if (!String(cevap || '').trim()) throw new BaglantiHatasi('Siteden boş cevap geldi');
+    return { metin: String(cevap).trim(), model: 'site' };
+  } catch (h) {
+    if (h instanceof BaglantiHatasi) throw h;
+    throw new BaglantiHatasi(h.message);
+  }
+}
+
 async function openaiSor(servis, mesajlar, zamanAsimi, sinyal, sicaklik) {
   const rolHaritasi = { sistem: 'system', kullanici: 'user', asistan: 'assistant' };
   const basliklar = { 'Content-Type': 'application/json', Authorization: `Bearer ${servis.anahtar}` };
@@ -193,7 +216,12 @@ async function openaiSor(servis, mesajlar, zamanAsimi, sinyal, sicaklik) {
       headers: basliklar,
       body: JSON.stringify({
         model: servis.model,
-        messages: mesajlar.map((m) => ({ role: rolHaritasi[m.rol], content: m.icerik })),
+        messages: mesajlar.map((m) => ({
+          role: rolHaritasi[m.rol],
+          content: servis.resim && m.resimler?.length
+            ? [{ type: 'text', text: m.icerik }, ...m.resimler.map((r) => ({ type: 'image_url', image_url: { url: `data:${r.mime};base64,${r.veri}` } }))]
+            : m.icerik
+        })),
         temperature: sicaklik
       })
     },
@@ -209,7 +237,10 @@ async function geminiSor(servis, mesajlar, zamanAsimi, sinyal, sicaklik) {
   const sistem = mesajlar.filter((m) => m.rol === 'sistem').map((m) => m.icerik).join('\n\n');
   const icerik = mesajlar
     .filter((m) => m.rol !== 'sistem')
-    .map((m) => ({ role: m.rol === 'asistan' ? 'model' : 'user', parts: [{ text: m.icerik }] }));
+    .map((m) => ({
+      role: m.rol === 'asistan' ? 'model' : 'user',
+      parts: [{ text: m.icerik }, ...(servis.resim && m.resimler?.length ? m.resimler.map((r) => ({ inline_data: { mime_type: r.mime, data: r.veri } })) : [])]
+    }));
   const govde = { contents: icerik, generationConfig: { temperature: sicaklik } };
   if (sistem && servis.sistemYok) {
     // Gemma gibi modeller ayrı sistem talimatını kabul etmez; talimat ilk mesajın başına eklenir.
