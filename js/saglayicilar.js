@@ -61,22 +61,6 @@ export const YERLESIK_SERVISLER = [
     }
   },
   {
-    id: 'zai',
-    ad: 'Z.ai GLM',
-    tur: 'openai',
-    adres: 'https://api.z.ai/api/paas/v4',
-    model: 'glm-4.5-flash',
-    not: 'Flash modelleri ücretsiz; limitler kendi konsolunda görünür.',
-    yardim: {
-      url: 'https://z.ai',
-      adimlar: [
-        'Bağlantıyı aç ve hesap oluştur.',
-        'Hesap menüsünden "API Keys" sayfasına git, yeni anahtar oluştur.',
-        'Anahtarı kopyalayıp aşağıya yapıştır. Model olarak adında "flash" geçenleri seç.'
-      ]
-    }
-  },
-  {
     id: 'nvidia',
     ad: 'NVIDIA',
     tur: 'openai',

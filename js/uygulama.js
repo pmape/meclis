@@ -122,6 +122,9 @@ async function klasordenYukle() {
   const kayitli = await depo.jsonOku('ayarlar.json');
   if (kayitli) {
     d.ayarlar = { ...structuredClone(VARSAYILAN), ...kayitli };
+    // Listeden çıkarılan yerleşik servisler (örneğin Z.ai) eski ayarlardan da silinsin.
+    const yerlesikIdler = new Set(VARSAYILAN.servisler.map((s) => s.id));
+    d.ayarlar.servisler = d.ayarlar.servisler.filter((s) => !s.yerlesik || yerlesikIdler.has(s.id));
     // Sonradan eklenen yerleşik servisler eski ayarlara da girsin.
     for (const y of VARSAYILAN.servisler) {
       if (!d.ayarlar.servisler.some((s) => s.id === y.id)) d.ayarlar.servisler.push(structuredClone(y));
